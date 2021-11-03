@@ -613,9 +613,8 @@ eventHandler.OnGUIAction = function(pid, idGui, data)
                     end
 
                     Players[pid]:LoadFromDrive()
-                    local passwordSalt = Players[pid].data.login.passwordSalt
 
-                    if Players[pid].data.login.passwordHash ~= tes3mp.GetSHA256Hash(data .. passwordSalt) then
+                    if Players[pid].data.login.passwordHash ~= data then
                         Players[pid]:Message("Incorrect password!\n")
                         guiHelper.ShowLogin(pid)
                         return true
@@ -1163,7 +1162,7 @@ eventHandler.OnActorDeath = function(pid, cellDescription)
         if LoadedCells[cellDescription] ~= nil then
 
             tes3mp.ReadReceivedActorList()
-            local actors = packetReader.GetActorPacketTables("death").actors
+            local actors = packetReader.GetActorPacketTables("ActorDeath").actors
 
             local eventStatus = customEventHooks.triggerValidators("OnActorDeath", {pid, cellDescription, actors})
 

@@ -11,7 +11,6 @@ function BasePlayer:__init(pid, playerName)
     {
         login = {
             name = "",
-            passwordSalt = "",
             passwordHash = ""
         },
         settings = {
@@ -145,24 +144,18 @@ function BasePlayer:Kick()
     tes3mp.Kick(self.pid)
 end
 
-function BasePlayer:GenerateSaltedHash(inputString)
-    self.data.login.passwordSalt = tes3mp.GenerateRandomString(64)
-    self.data.login.passwordHash = tes3mp.GetSHA256Hash(inputString .. self.data.login.passwordSalt)
-end
-
 -- Replace any plaintext passwords with an unpredictable serverside
 -- salted hash of a predictable clientside salted hash
 function BasePlayer:ConvertPlaintextPassword()
     local inputHash = tes3mp.GetSHA256Hash(self.data.login.password)
     inputHash = tes3mp.GetSHA256Hash(inputHash .. tes3mp.GetSHA256Hash(tes3mp.GetSHA256Hash(inputHash)))
-    self:GenerateSaltedHash(inputHash)
     self.data.login.password = nil
 end
 
 function BasePlayer:Register(clientPasswordHash)
     self.loggedIn = true
     self.isNewlyRegistered = true
-    self:GenerateSaltedHash(clientPasswordHash)
+    self.data.login.passwordHash = clientPasswordHash
     self.data.settings.consoleAllowed = "default"
 
     if not self.hasAccount then
