@@ -144,8 +144,7 @@ function BasePlayer:Kick()
     tes3mp.Kick(self.pid)
 end
 
--- Replace any plaintext passwords with an unpredictable serverside
--- salted hash of a predictable clientside salted hash
+-- Replace a plaintext password with hashed equivalent
 function BasePlayer:ConvertPlaintextPassword()
     local inputHash = tes3mp.GetSHA256Hash(self.data.login.password)
     inputHash = tes3mp.GetSHA256Hash(inputHash .. tes3mp.GetSHA256Hash(tes3mp.GetSHA256Hash(inputHash)))

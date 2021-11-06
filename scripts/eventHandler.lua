@@ -614,6 +614,11 @@ eventHandler.OnGUIAction = function(pid, idGui, data)
 
                     Players[pid]:LoadFromDrive()
 
+                    -- Update old password to hashed version before logging in
+                    if Players[pid].data.login.passwordHash == nil then
+                        Players[pid]:ConvertPlaintextPassword()
+                    end
+
                     if Players[pid].data.login.passwordHash ~= data then
                         Players[pid]:Message("Incorrect password!\n")
                         guiHelper.ShowLogin(pid)
