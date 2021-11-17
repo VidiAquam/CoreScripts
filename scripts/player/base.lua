@@ -1035,6 +1035,8 @@ function BasePlayer:SaveEquipment()
 
                 self.previousEquipment[slot] = tableHelper.deepCopy(self.data.equipment[slot])
             end
+        else
+            table.remove(self.data.equipment, slot)
         end
     end
 
