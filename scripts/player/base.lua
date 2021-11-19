@@ -13,6 +13,13 @@ function BasePlayer:__init(pid, playerName)
             name = "",
             passwordHash = ""
         },
+        timestamps = {
+            creation = os.time(),
+            lastLogin = os.time(),
+            lastDisconnect = 0,
+            lastFixMe = 0,
+            lastSessionDuration = 0
+        },
         settings = {
             staffRank = 0,
             difficulty = "default",
@@ -106,8 +113,6 @@ function BasePlayer:__init(pid, playerName)
         }
     end
 
-    self.initTimestamp = os.time()
-
     if playerName == nil then
         self.accountName = tes3mp.GetName(pid)
     else
@@ -166,6 +171,17 @@ function BasePlayer:FinishLogin()
 
     if self.hasAccount then
         self:SaveIpAddress()
+
+        if self.data.timestamps == nil then
+            self.data.timestamps = {
+                creation = os.time(),
+                lastDisconnect = 0,
+                lastFixMe = 0,
+                lastSessionDuration = 0
+            }
+        end
+
+        self.data.timestamps.lastLogin = os.time()
 
         self:LoadSettings()
         self:LoadCharacter()
@@ -921,20 +937,15 @@ function BasePlayer:LoadCell()
 
             tes3mp.SetCell(self.pid, newCell)
 
-            local pos = {0, 0, 0}
-            local rot = {0, 0}
-            pos[0] = self.data.location.posX
-            pos[1] = self.data.location.posY
-            pos[2] = self.data.location.posZ
-            rot[0] = self.data.location.rotX
-            rot[1] = self.data.location.rotZ
+            local pos = { self.data.location.posX, self.data.location.posY, self.data.location.posZ }
+            local rot = { self.data.location.rotX, self.data.location.rotZ }
 
-            if pos[0] ~= nil and pos[1] ~= nil and pos[2] ~= nil then
-                tes3mp.SetPos(self.pid, pos[0], pos[1], pos[2])
+            if pos[1] ~= nil and pos[2] ~= nil and pos[3] ~= nil then
+                tes3mp.SetPos(self.pid, pos[1], pos[2], pos[3])
             end
 
             if rot[0] ~= nil and rot[1] ~= nil then
-                tes3mp.SetRot(self.pid, rot[0], rot[1])
+                tes3mp.SetRot(self.pid, rot[1], rot[2])
             end
 
             tes3mp.SendCell(self.pid)
@@ -1214,26 +1225,6 @@ function BasePlayer:LoadSpellbook()
     tes3mp.SendSpellbookChanges(self.pid)
 end
 
-function BasePlayer:LoadSpellsActive()
-
-    if self.data.spellsActive == nil then self.data.spellsActive = {} end
-
-    tes3mp.ClearSpellsActiveChanges(self.pid)
-    tes3mp.SetSpellsActiveChangesAction(self.pid, enumerations.spellbook.SET)
-
-    for spellId, spellTable in pairs(self.data.spellsActive) do
-
-        for effectIndex, effectTable in pairs(spellTable.effects) do
-            tes3mp.AddSpellActiveEffect(self.pid, effectTable.id, effectTable.arg, effectTable.magnitude,
-                effectTable.duration, effectTable.timeLeft)
-        end
-
-        tes3mp.AddSpellActive(self.pid, spellId, spellTable.displayName)
-    end
-
-    tes3mp.SendSpellsActiveChanges(self.pid)
-end
-
 function BasePlayer:SaveSpellbook()
 
     local action = tes3mp.GetSpellbookChangesAction(self.pid)
@@ -1276,6 +1267,55 @@ function BasePlayer:SaveSpellbook()
     end
 end
 
+function BasePlayer:UpdateActiveSpellTimes()
+
+    for spellId, spellTable in pairs(self.data.spellsActive) do
+        local hadRemainingEffect = false
+
+        for effectIndex, effectTable in pairs(spellTable.effects) do
+
+            local timeSinceCast = os.time() - spellTable.startTime
+
+            if timeSinceCast <= 0 then
+                self.data.spellsActive[spellId].effects[effectIndex] = nil
+            else
+                hadRemainingEffect = true
+
+                -- Subtract the time elapsed since casting the spell from the
+                -- effect's remaining time
+                effectTable.timeLeft = effectTable.timeLeft - timeSinceCast
+            end
+        end
+
+        if hadRemainingEffect == false then
+            self.data.spellsActive[spellId] = nil
+        end        
+    end
+
+    tableHelper.cleanNils(self.data.spellsActive)
+end
+
+function BasePlayer:LoadSpellsActive()
+
+    if self.data.spellsActive == nil then self.data.spellsActive = {} end
+
+    tes3mp.ClearSpellsActiveChanges(self.pid)
+    tes3mp.SetSpellsActiveChangesAction(self.pid, enumerations.spellbook.SET)
+
+    for spellId, spellTable in pairs(self.data.spellsActive) do
+
+        for effectIndex, effectTable in pairs(spellTable.effects) do
+
+            tes3mp.AddSpellActiveEffect(self.pid, effectTable.id, effectTable.magnitude,
+                effectTable.duration, effectTable.timeLeft, effectTable.arg)
+        end
+
+        tes3mp.AddSpellActive(self.pid, spellId, spellTable.displayName)
+    end
+
+    tes3mp.SendSpellsActiveChanges(self.pid)
+end
+
 function BasePlayer:SaveSpellsActive()
 
     local action = tes3mp.GetSpellsActiveChangesAction(self.pid)
@@ -1302,10 +1342,10 @@ function BasePlayer:SaveSpellsActive()
                 for effectIndex = 0, tes3mp.GetSpellsActiveEffectCount(self.pid, spellIndex) - 1 do
                     local effect = {
                         id = tes3mp.GetSpellsActiveEffectId(self.pid, spellIndex, effectIndex),
-                        arg = tes3mp.GetSpellsActiveEffectArg(self.pid, spellIndex, effectIndex),
                         magnitude = tes3mp.GetSpellsActiveEffectMagnitude(self.pid, spellIndex, effectIndex),
                         duration = tes3mp.GetSpellsActiveEffectDuration(self.pid, spellIndex, effectIndex),
-                        timeLeft = tes3mp.GetSpellsActiveEffectTimeLeft(self.pid, spellIndex, effectIndex)
+                        timeLeft = tes3mp.GetSpellsActiveEffectTimeLeft(self.pid, spellIndex, effectIndex),
+                        arg = tes3mp.GetSpellsActiveEffectArg(self.pid, spellIndex, effectIndex)
                     }
 
                     table.insert(self.data.spellsActive[spellId].effects, effect)

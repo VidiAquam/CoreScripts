@@ -193,7 +193,7 @@ function BaseCell:AddVisitor(pid)
             shouldSendInfo = true
         -- Otherwise, send them the cell data only if they haven't
         -- visited since last connecting to the server
-        elseif Players[pid].initTimestamp > lastVisitTimestamp then
+        elseif Players[pid].data.timestamps.lastLogin > lastVisitTimestamp then
             shouldSendInfo = true
         end
 
@@ -1913,7 +1913,8 @@ function BaseCell:RequestContainers(pid, requestUniqueIndexes)
     tes3mp.SetObjectListCell(self.description)
 
     -- Set the action to REQUEST
-    tes3mp.SetObjectListAction(3)
+    tes3mp.SetObjectListAction(enumerations.container.REQUEST)
+    tes3mp.SetObjectListContainerSubAction(enumerations.containerSub.NONE)
 
     -- If certain uniqueIndexes are specified, iterate through them and
     -- add them as world objects
@@ -1956,6 +1957,13 @@ function BaseCell:LoadInitialCellData(pid)
 
     self:EnsurePacketTables()
     self:EnsurePacketValidity()
+
+    if self.data.loadState == nil then
+        self.data.loadState = {
+            hasFullActorList = false,
+            hasFullContainerData = false
+        }
+    end
 
     tes3mp.LogMessage(enumerations.log.INFO, "Loading data of cell " .. self.description .. " for " ..
         logicHandler.GetChatName(pid))

@@ -378,6 +378,31 @@ eventHandler.InitializeDefaultHandlers = function()
         tes3mp.SendObjectRestock(false, false)
     end)
 
+    -- Print object dialogue choice and send an ObjectDialogueChoice packet back to the player
+    customEventHooks.registerHandler("OnObjectDialogueChoice", function(eventStatus, pid, cellDescription, objects)
+
+        if eventStatus.validDefaultHandler == false then return end
+
+        local debugMessage = nil
+
+        for uniqueIndex, object in pairs(objects) do
+            tes3mp.LogAppend(enumerations.log.INFO, "- Accepting dialogue choice type " ..
+                tableHelper.getIndexByValue(enumerations.dialogueChoice, object.dialogueChoiceType) ..
+                " for " .. object.refId .. " " .. uniqueIndex)
+
+            if object.dialogueChoiceType == enumerations.dialogueChoice.TOPIC then
+                tes3mp.LogAppend(enumerations.log.INFO, "- topic was " .. object.dialogueTopic)
+            end
+        end
+
+        tes3mp.CopyReceivedObjectListToStore()
+        -- Dialogue choices cannot be triggered clientside without the server's approval,
+        -- so we send the packet back to the player who sent it, but we avoid sending it to
+        -- other players
+        -- i.e. sendToOtherPlayers is false and skipAttachedPlayer is false
+        tes3mp.SendObjectDialogueChoice(false, false)
+    end)
+
 end
 
 eventHandler.OnPlayerConnect = function(pid, playerName)
@@ -488,6 +513,12 @@ eventHandler.OnPlayerDisconnect = function(pid)
                 if tableHelper.containsValue(pidsByIpAddress[ipAddress], pid) then
                     tableHelper.removeValue(pidsByIpAddress[ipAddress], pid)
                 end
+
+                Players[pid].data.timestamps.lastDisconnect = os.time()
+                Players[pid].data.timestamps.lastSessionDuration = os.time() - Players[pid].data.timestamps.lastLogin
+
+                -- Adjust the time left for this player's active spells
+                Players[pid]:UpdateActiveSpellTimes()
 
                 Players[pid]:DeleteSummons()
 
@@ -1322,6 +1353,10 @@ end
 
 eventHandler.OnObjectLock = function(pid, cellDescription)
     eventHandler.OnGenericObjectEvent(pid, cellDescription, "ObjectLock")
+end
+
+eventHandler.OnObjectDialogueChoice = function(pid, cellDescription)
+    eventHandler.OnGenericObjectEvent(pid, cellDescription, "ObjectDialogueChoice")
 end
 
 eventHandler.OnObjectMiscellaneous = function(pid, cellDescription)
