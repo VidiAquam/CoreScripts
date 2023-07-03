@@ -126,42 +126,50 @@ end
 
 do
     local previousHourFloor = nil
-
+    
     function UpdateTime()
 
         if config.passTimeWhenEmpty or tableHelper.getCount(Players) > 0 then
-
+    
             hourCounter = hourCounter + (0.0083 * WorldInstance.frametimeMultiplier)
-
+    
             local hourFloor = math.floor(hourCounter)
-
+    
             if previousHourFloor == nil then
                 previousHourFloor = hourFloor
-
+    
             elseif hourFloor > previousHourFloor then
-
+    
                 if hourFloor >= 24 then
 
-                    hourCounter = hourCounter - hourFloor
-                    hourFloor = 0
-
-                    tes3mp.LogMessage(enumerations.log.INFO, "The world time day has been incremented")
-                    WorldInstance:IncrementDay()
+                    local eventStatus = customEventHooks.triggerValidators("OnGameDay", {})
+                    if eventStatus.validDefaultHandler then
+                        hourCounter = hourCounter - hourFloor
+                        hourFloor = 0
+    
+                        tes3mp.LogMessage(enumerations.log.INFO, "The world time day has been incremented")
+                        WorldInstance:IncrementDay()
+                    end
+                    customEventHooks.triggerHandlers("OnGameDay", eventStatus, {})
                 end
-
-                tes3mp.LogMessage(enumerations.log.INFO, "The world time hour is now " .. hourFloor)
-                WorldInstance.data.time.hour = hourCounter
-
-                WorldInstance:UpdateFrametimeMultiplier()
-
-                if tableHelper.getCount(Players) > 0 then
-                    WorldInstance:LoadTime(tableHelper.getAnyValue(Players).pid, true)
+    
+                local eventStatus = customEventHooks.triggerValidators("OnGameHour", {})
+                if eventStatus.validDefaultHandler then
+                    tes3mp.LogMessage(enumerations.log.INFO, "The world time hour is now " .. hourFloor)
+                    WorldInstance.data.time.hour = hourCounter
+    
+                    WorldInstance:UpdateFrametimeMultiplier()
+    
+                    if tableHelper.getCount(Players) > 0 then
+                        WorldInstance:LoadTime(tableHelper.getAnyValue(Players).pid, true)
+                    end
+    
+                    previousHourFloor = hourFloor
                 end
-
-                previousHourFloor = hourFloor
+                customEventHooks.triggerHandlers("OnGameHour", eventStatus, {})
             end
         end
-
+    
         tes3mp.RestartTimer(updateTimerId, time.seconds(1))
     end
 end
